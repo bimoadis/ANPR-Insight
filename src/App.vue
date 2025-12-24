@@ -173,15 +173,54 @@
         >
           <template v-if="hasil.length">
             <div class="text-left px-4 py-2 w-full">
-              <h2
-                class="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2"
-              >
-                📊 Data Plat Terdeteksi
-              </h2>
+              <div class="flex items-center justify-between mb-3">
+                <h2
+                  class="text-lg font-semibold text-gray-800 flex items-center gap-2"
+                >
+                  📊 Data Plat Terdeteksi
+                </h2>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-2">
+                  <button
+                    @click="downloadResults"
+                    class="px-4 py-2 rounded-md text-sm font-semibold transition bg-blue-600 text-white hover:bg-blue-700"
+                    :disabled="downloading"
+                  >
+                    {{
+                      downloading ? "⏳ Downloading..." : "📥 Download Hasil"
+                    }}
+                  </button>
+
+                  <!-- Filter Buttons -->
+                  <button
+                    @click="toggleFilter('hitam')"
+                    :class="[
+                      'px-4 py-2 rounded-md text-sm font-semibold transition',
+                      filterType === 'hitam'
+                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300',
+                    ]"
+                  >
+                    Plat Hitam
+                  </button>
+                  <button
+                    @click="toggleFilter('putih')"
+                    :class="[
+                      'px-4 py-2 rounded-md text-sm font-semibold transition',
+                      filterType === 'putih'
+                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300',
+                    ]"
+                  >
+                    Plat Putih
+                  </button>
+                </div>
+              </div>
 
               <div class="max-h-[600px] overflow-y-auto space-y-5 pr-2">
                 <div
-                  v-for="(row, i) in hasil"
+                  v-for="(row, i) in filteredHasil"
                   :key="i"
                   class="bg-white rounded-xl shadow-md border border-gray-200 p-4 hover:shadow-lg transition-all"
                 >
@@ -224,7 +263,7 @@
                         {{ row["OCR Crop"] || "N/A" }}
                       </span>
                     </p>
-                    <p v-if="row['OCR HD']">
+                    <!-- <p v-if="row['OCR HD']">
                       <span class="font-medium text-gray-800">OCR HD:</span>
                       <span
                         :class="
@@ -233,7 +272,7 @@
                       >
                         {{ row["OCR HD"] || "N/A" }}
                       </span>
-                    </p>
+                    </p> -->
                     <p v-if="row['SR Path'] || row['OCR SR']">
                       <span class="font-medium text-gray-800">OCR SR:</span>
                       <span
@@ -249,80 +288,89 @@
                   </div>
 
                   <!-- Images Section -->
-                  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <!-- Crop -->
-                    <div v-if="row['Crop Path']" class="text-center">
-                      <p class="text-xs font-semibold text-gray-700 mb-1">
-                        Crop
+                  <div class="flex gap-3">
+                    <!-- Deteksi - 55% width -->
+                    <div
+                      v-if="row['Deteksi Path']"
+                      class="flex-shrink-0"
+                      style="width: 60%"
+                    >
+                      <p
+                        class="text-xs font-semibold text-blue-700 mb-1 text-center"
+                      >
+                        Deteksi
                       </p>
                       <div class="relative">
                         <img
-                          :src="formatPath(row['Crop Path'])"
-                          alt="Crop"
-                          class="w-full object-contain max-h-[25vh] mx-auto rounded border border-gray-200"
+                          :src="formatPath(row['Deteksi Path'])"
+                          alt="Deteksi"
+                          class="w-full object-contain max-h-[50vh] mx-auto rounded border-2 border-blue-300 cursor-pointer hover:opacity-90 transition-opacity"
                           @error="handleImageError"
+                          @click="openImageModal(row)"
                         />
-                        <p
-                          v-if="row['OCR Crop']"
-                          class="text-xs text-gray-600 mt-1 font-mono"
-                        >
-                          {{ row["OCR Crop"] }}
-                        </p>
                       </div>
                     </div>
 
-                    <!-- HD -->
-                    <div v-if="row['HD Path']" class="text-center">
-                      <p class="text-xs font-semibold text-gray-700 mb-1">HD</p>
-                      <div class="relative">
+                    <!-- Crop dan SR - 45% width, vertikal (atas bawah) -->
+                    <div
+                      class="flex-shrink-0 flex flex-col gap-3"
+                      style="width: 40%"
+                    >
+                      <!-- Crop -->
+                      <div v-if="row['Crop Path']" class="text-center">
+                        <p class="text-xs font-semibold text-gray-700 mb-1">
+                          Crop
+                        </p>
+                        <div class="relative">
+                          <img
+                            :src="formatPath(row['Crop Path'])"
+                            alt="Crop"
+                            class="min-w-[60%] object-contain max-h-[14vh] mx-auto rounded border border-gray-200"
+                            @error="handleImageError"
+                          />
+                          <p
+                            v-if="row['OCR Crop']"
+                            class="text-xs text-gray-600 mt-1 font-mono"
+                          >
+                            {{ row["OCR Crop"] }}
+                          </p>
+                        </div>
+                      </div>
+
+                      <!-- SR -->
+                      <div v-if="row['SR Path']" class="text-center">
+                        <p class="text-xs font-semibold text-emerald-700 mb-1">
+                          SR
+                        </p>
+                        <div class="relative">
+                          <img
+                            :src="formatPath(row['SR Path'])"
+                            alt="SR"
+                            class="max-w-[60%] object-contain max-h-[14vh] mx-auto rounded border-2 border-emerald-300"
+                            @load="handleSRImageLoad(row)"
+                            @error="handleImageError"
+                          />
+                          <p
+                            v-if="row['OCR SR']"
+                            class="text-xs text-emerald-700 mt-1 font-mono font-semibold"
+                          >
+                            {{ row["OCR SR"] }}
+                          </p>
+                        </div>
+                      </div>
+
+                      <!-- Threshold (if exists) -->
+                      <div v-if="row['Threshold Path']" class="text-center">
+                        <p class="text-xs font-semibold text-gray-700 mb-1">
+                          Threshold
+                        </p>
                         <img
-                          :src="formatPath(row['HD Path'])"
-                          alt="HD"
-                          class="w-full object-contain max-h-[25vh] mx-auto rounded border border-gray-200"
+                          :src="formatPath(row['Threshold Path'])"
+                          alt="Threshold"
+                          class="w-full object-contain max-h-[18vh] mx-auto rounded border border-gray-200"
                           @error="handleImageError"
                         />
-                        <p
-                          v-if="row['OCR HD']"
-                          class="text-xs text-gray-600 mt-1 font-mono"
-                        >
-                          {{ row["OCR HD"] }}
-                        </p>
                       </div>
-                    </div>
-
-                    <!-- SR -->
-                    <div v-if="row['SR Path']" class="text-center">
-                      <p class="text-xs font-semibold text-emerald-700 mb-1">
-                        SR
-                      </p>
-                      <div class="relative">
-                        <img
-                          :src="formatPath(row['SR Path'])"
-                          alt="SR"
-                          class="w-full object-contain max-h-[25vh] mx-auto rounded border-2 border-emerald-300"
-                          @load="handleSRImageLoad(row)"
-                          @error="handleImageError"
-                        />
-                        <p
-                          v-if="row['OCR SR']"
-                          class="text-xs text-emerald-700 mt-1 font-mono font-semibold"
-                        >
-                          {{ row["OCR SR"] }}
-                        </p>
-                      </div>
-                    </div>
-
-                    <!-- Threshold (if exists) -->
-                    <div v-if="row['Threshold Path']" class="text-center">
-                      <p class="text-xs font-semibold text-gray-700 mb-1">
-                        Threshold
-                      </p>
-                      <img
-                        :src="formatPath(row['Threshold Path'])"
-                        alt="Threshold"
-                        class="w-full object-contain max-h-[25vh] mx-auto rounded border border-gray-200"
-                        @error="handleImageError"
-                      />
                     </div>
                   </div>
                 </div>
@@ -352,11 +400,172 @@
         </div>
       </div>
     </div>
+
+    <!-- Image Modal Popup -->
+    <div
+      v-if="showImageModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm"
+      @click.self="closeImageModal"
+    >
+      <div
+        class="relative bg-white rounded-2xl shadow-2xl max-w-6xl max-h-[90vh] w-full mx-4 overflow-hidden flex flex-col"
+      >
+        <!-- Header -->
+        <div
+          class="bg-gradient-to-r from-blue-600 to-emerald-600 text-white px-6 py-4 flex justify-between items-center"
+        >
+          <div>
+            <h3 class="text-xl font-bold">Detail Deteksi Plat Nomor</h3>
+            <p class="text-sm opacity-90">
+              Frame #{{ selectedRow?.Frame || "N/A" }} | Label:
+              {{ selectedRow?.["Label Plat"] || "N/A" }}
+            </p>
+          </div>
+          <button
+            @click="closeImageModal"
+            class="text-white hover:text-gray-200 text-3xl font-bold bg-white bg-opacity-20 rounded-full w-10 h-10 flex items-center justify-center transition-all hover:bg-opacity-30"
+            title="Close (ESC)"
+          >
+            ×
+          </button>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-hidden flex gap-4 p-6">
+          <!-- Left Side - 80% (Deteksi Image) -->
+          <div class="flex-1 overflow-y-auto">
+            <div
+              v-if="selectedRow?.['Deteksi Path']"
+              class="bg-gray-50 rounded-xl p-4 border-2 border-blue-300 h-full flex flex-col"
+            >
+              <!-- <div class="flex items-center gap-2 mb-3">
+                <span class="text-2xl">🔍</span>
+                <h4 class="text-lg font-semibold text-blue-700">
+                  Gambar Deteksi
+                </h4>
+              </div> -->
+              <div class="flex-1 flex items-center justify-center">
+                <img
+                  :src="formatPath(selectedRow['Deteksi Path'])"
+                  alt="Deteksi"
+                  class="max-w-full max-h-[75vh] object-contain rounded-lg shadow-lg"
+                  @error="handleImageError"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Sidebar - 20% (Crop, SR, Info) -->
+          <div class="w-[20%] flex-shrink-0 overflow-y-auto space-y-4 pl-2">
+            <!-- Crop Image -->
+            <div
+              v-if="selectedRow?.['Crop Path']"
+              class="bg-gray-50 rounded-xl p-3 border-2 border-gray-300"
+            >
+              <div class="flex items-center gap-1 mb-1">
+                <span class="text-lg">✂️</span>
+                <h4 class="text-sm font-semibold text-gray-700">Crop</h4>
+              </div>
+              <img
+                :src="formatPath(selectedRow['Crop Path'])"
+                alt="Crop"
+                class="w-full object-contain max-h-[20vh] mx-auto rounded-lg shadow-md mb-2"
+                @error="handleImageError"
+              />
+              <div
+                v-if="selectedRow?.['OCR Crop']"
+                class="bg-white rounded-lg p-2 border border-gray-200"
+              >
+                <p class="text-xs text-gray-600 mb-1 font-semibold">
+                  OCR: {{ selectedRow["OCR Crop"] }}
+                </p>
+              </div>
+              <div
+                v-else
+                class="bg-gray-100 rounded-lg p-2 border border-gray-200"
+              >
+                <p class="text-xs text-gray-500 text-center italic">
+                  OCR tidak tersedia
+                </p>
+              </div>
+            </div>
+
+            <!-- SR Image -->
+            <div
+              v-if="selectedRow?.['SR Path']"
+              class="bg-gray-50 rounded-xl p-3 border-2 border-emerald-300"
+            >
+              <div class="flex items-center gap-1 mb-1">
+                <span class="text-lg">✨</span>
+                <h4 class="text-sm font-semibold text-emerald-700">SR</h4>
+              </div>
+              <img
+                :src="formatPath(selectedRow['SR Path'])"
+                alt="SR"
+                class="w-full object-contain max-h-[20vh] mx-auto rounded-lg shadow-md mb-2"
+                @error="handleImageError"
+              />
+              <div
+                v-if="selectedRow?.['OCR SR']"
+                class="bg-emerald-50 rounded-lg p-2 border-2 border-emerald-300"
+              >
+                <p class="text-xs text-emerald-700 mb-1 font-semibold">
+                  OCR: {{ selectedRow["OCR SR"] }}
+                </p>
+              </div>
+              <div
+                v-else
+                class="bg-gray-100 rounded-lg p-2 border border-gray-200"
+              >
+                <p class="text-xs text-gray-500 text-center italic">
+                  OCR tidak tersedia
+                </p>
+              </div>
+            </div>
+
+            <!-- Additional Info -->
+            <div
+              class="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-3 border border-gray-200"
+            >
+              <h4 class="text-xs font-semibold text-gray-700 mb-2">
+                Informasi
+              </h4>
+              <div class="space-y-2 text-xs">
+                <div>
+                  <p class="text-gray-600">Confidence:</p>
+                  <p class="font-semibold text-gray-900">
+                    {{ selectedRow?.["Conf YOLO"] || "N/A" }}
+                  </p>
+                </div>
+                <div>
+                  <p class="text-gray-600">Waktu:</p>
+                  <p class="font-semibold text-gray-900 text-xs">
+                    {{ selectedRow?.Waktu || "N/A" }}
+                  </p>
+                </div>
+                <div>
+                  <p class="text-gray-600">Frame:</p>
+                  <p class="font-semibold text-gray-900">
+                    #{{ selectedRow?.Frame || "N/A" }}
+                  </p>
+                </div>
+                <div>
+                  <p class="text-gray-600">Label:</p>
+                  <p class="font-semibold text-gray-900">
+                    {{ selectedRow?.["Label Plat"] || "N/A" }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 
 const apiUrl = import.meta.env.VITE_API_URL;
 const fileInput = ref(null);
@@ -371,6 +580,10 @@ const videoPreviewUrl = ref("");
 const uploadComplete = ref(false);
 const processingDetection = ref(false);
 const hasVideo = ref(false);
+const filterType = ref("all");
+const showImageModal = ref(false);
+const selectedRow = ref(null);
+const downloading = ref(false);
 
 const triggerFileInput = () => fileInput.value.click();
 
@@ -441,7 +654,7 @@ const startUpload = () => {
     uploading.value = false;
     if (xhr.status === 200) {
       const res = JSON.parse(xhr.responseText);
-      message.value = res.message || "Upload berhasil!";
+      message.value = res.message;
       uploadComplete.value = true;
       hasVideo.value = true;
     } else {
@@ -478,7 +691,7 @@ const startDetection = async () => {
     }
 
     const data = await res.json();
-    message.value = data.message || "✅ Deteksi plat nomor dimulai!";
+    message.value = data.message;
 
     // Poll status setiap 2 detik
     const statusInterval = setInterval(async () => {
@@ -497,8 +710,7 @@ const startDetection = async () => {
           // Deteksi selesai
           processingDetection.value = false;
           clearInterval(statusInterval);
-          message.value =
-            statusData.message || "✅ Deteksi plat nomor selesai!";
+          message.value = statusData.message;
           hasVideo.value = true;
 
           // Refresh hasil
@@ -507,8 +719,7 @@ const startDetection = async () => {
           }, 1000);
         } else {
           // Masih processing
-          message.value =
-            statusData.message || "Memproses deteksi plat nomor...";
+          message.value = statusData.message;
         }
       } catch (err) {
         console.error("Error checking status:", err);
@@ -576,10 +787,319 @@ const formatPath = (path) => {
   return `${apiUrl}${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
 };
 
+const openImageModal = (row) => {
+  selectedRow.value = row;
+  showImageModal.value = true;
+  // Prevent body scroll when modal is open
+  document.body.style.overflow = "hidden";
+};
+
+const closeImageModal = () => {
+  showImageModal.value = false;
+  selectedRow.value = null;
+  // Restore body scroll
+  document.body.style.overflow = "auto";
+};
+
+// Group results by frame
+const groupByFrame = (data) => {
+  const grouped = {};
+  data.forEach((row) => {
+    const frame = row.Frame || "unknown";
+    if (!grouped[frame]) {
+      grouped[frame] = [];
+    }
+    grouped[frame].push(row);
+  });
+  return grouped;
+};
+
+// Load image from URL
+const loadImage = (url) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+};
+
+// Combine detection and SR images side by side
+const combineImages = async (deteksiUrl, srUrl) => {
+  try {
+    const [deteksiImg, srImg] = await Promise.all([
+      loadImage(deteksiUrl),
+      srUrl ? loadImage(srUrl) : loadImage(deteksiUrl), // Fallback to deteksi if SR not available
+    ]);
+
+    // Calculate canvas dimensions
+    const deteksiHeight = deteksiImg.height;
+    const deteksiWidth = deteksiImg.width;
+    const srHeight = srImg.height;
+    const srWidth = srImg.width;
+
+    // Use the maximum height for both images
+    const maxHeight = Math.max(deteksiHeight, srHeight);
+    const deteksiScale = maxHeight / deteksiHeight;
+    const srScale = maxHeight / srHeight;
+
+    const scaledDeteksiWidth = deteksiWidth * deteksiScale;
+    const scaledSrWidth = srWidth * srScale;
+
+    // Create canvas
+    const canvas = document.createElement("canvas");
+    canvas.width = scaledDeteksiWidth + scaledSrWidth;
+    canvas.height = maxHeight;
+    const ctx = canvas.getContext("2d");
+
+    // Fill white background
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw detection image (left)
+    ctx.drawImage(deteksiImg, 0, 0, scaledDeteksiWidth, maxHeight);
+
+    // Draw SR image (right)
+    ctx.drawImage(srImg, scaledDeteksiWidth, 0, scaledSrWidth, maxHeight);
+
+    return canvas;
+  } catch (error) {
+    console.error("Error combining images:", error);
+    return null;
+  }
+};
+
+// Convert image to base64
+const imageToBase64 = (url) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL("image/jpeg", 0.9));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+};
+
+// Load jsPDF from CDN
+const loadJsPDF = () => {
+  return new Promise((resolve, reject) => {
+    if (window.jspdf) {
+      resolve(window.jspdf);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src =
+      "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    script.onload = () => {
+      if (window.jspdf) {
+        resolve(window.jspdf);
+      } else {
+        reject(new Error("jsPDF failed to load"));
+      }
+    };
+    script.onerror = () => reject(new Error("Failed to load jsPDF script"));
+    document.head.appendChild(script);
+  });
+};
+
+// Download results as PDF grouped by frame
+const downloadResults = async () => {
+  if (hasil.value.length === 0) {
+    alert("Tidak ada data untuk didownload");
+    return;
+  }
+
+  downloading.value = true;
+
+  try {
+    // Load jsPDF
+    const jsPDF = await loadJsPDF();
+    const pdf = new jsPDF.jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+    });
+
+    const grouped = groupByFrame(hasil.value);
+    const frames = Object.keys(grouped).sort(
+      (a, b) => parseInt(a) - parseInt(b)
+    );
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    const contentWidth = pageWidth - 2 * margin;
+    const contentHeight = pageHeight - 2 * margin;
+    const imageHeight = 60; // Height for each image row in mm
+    const textHeight = 8; // Height for OCR text
+
+    let yPosition = margin;
+    let pageNumber = 1;
+
+    for (const frame of frames) {
+      const frameData = grouped[frame];
+
+      // Find first detection with deteksi path for this frame
+      const firstDetection = frameData.find((row) => row["Deteksi Path"]);
+
+      if (!firstDetection) continue;
+
+      // Calculate needed height: deteksi image + all SR images (2x smaller) + OCR texts
+      const srImageHeight = imageHeight / 2; // 2x smaller
+      const srCount = frameData.filter((row) => row["SR Path"]).length;
+      const neededHeight =
+        imageHeight + // Detection image
+        srCount * (srImageHeight + 4) + // All SR images with spacing
+        frameData.length * (textHeight + 4) + // OCR texts for each detection
+        15; // Frame header
+
+      if (yPosition + neededHeight > pageHeight - margin) {
+        pdf.addPage();
+        yPosition = margin;
+        pageNumber++;
+      }
+
+      // Frame header
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`Frame #${frame}`, margin, yPosition);
+      yPosition += 8;
+
+      try {
+        // Load and add detection image (left side - 50% width) - only once per frame
+        const deteksiUrl = formatPath(firstDetection["Deteksi Path"]);
+        const deteksiBase64 = await imageToBase64(deteksiUrl);
+        const deteksiWidth = contentWidth * 0.5;
+        const deteksiStartY = yPosition;
+
+        pdf.addImage(
+          deteksiBase64,
+          "JPEG",
+          margin,
+          deteksiStartY,
+          deteksiWidth,
+          imageHeight
+        );
+
+        // Add detection label
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica", "normal");
+        pdf.text("Deteksi", margin + 2, deteksiStartY - 2);
+
+        // Right side: Add all SR images (2x smaller) vertically
+        let srYPosition = deteksiStartY;
+        const srWidth = contentWidth * 0.5;
+        const srStartX = margin + deteksiWidth;
+
+        // Process all detections in this frame to get all SR images
+        for (let i = 0; i < frameData.length; i++) {
+          const row = frameData[i];
+          const srPath = row["SR Path"];
+
+          if (srPath) {
+            try {
+              const srUrl = formatPath(srPath);
+              const srBase64 = await imageToBase64(srUrl);
+
+              // Add SR image (2x smaller)
+              pdf.addImage(
+                srBase64,
+                "JPEG",
+                srStartX,
+                srYPosition,
+                srWidth,
+                srImageHeight
+              );
+
+              // Add SR label with index
+              pdf.setFontSize(7);
+              pdf.text(`SR ${i + 1}`, srStartX + 2, srYPosition - 1);
+
+              srYPosition += srImageHeight + 4; // Space between SR images
+            } catch (e) {
+              console.error(`Error loading SR image ${i + 1}:`, e);
+            }
+          }
+        }
+
+        // Add OCR information below images for all detections
+        yPosition = deteksiStartY + imageHeight + 5;
+        pdf.setFontSize(7);
+        pdf.setFont("helvetica", "bold");
+
+        for (let i = 0; i < frameData.length; i++) {
+          const row = frameData[i];
+          const ocrCrop = row["OCR Crop"] || "N/A";
+          const ocrSR = row["OCR SR"] || "N/A";
+          const conf = row["Conf YOLO"] || "N/A";
+          const label = row["Label Plat"] || "N/A";
+
+          // Detection number
+          pdf.text(`Deteksi ${i + 1}:`, margin, yPosition);
+          yPosition += 4;
+
+          // OCR Crop
+          pdf.setFont("helvetica", "normal");
+          pdf.text(`  OCR Crop: ${ocrCrop}`, margin, yPosition);
+          yPosition += 3;
+
+          // OCR SR
+          pdf.text(`  OCR SR: ${ocrSR}`, margin, yPosition);
+          yPosition += 3;
+
+          // Additional info
+          pdf.text(
+            `  Confidence: ${conf} | Label: ${label}`,
+            margin,
+            yPosition
+          );
+          yPosition += 5; // Space before next detection info
+        }
+      } catch (error) {
+        console.error(`Error processing frame ${frame}:`, error);
+      }
+
+      // Add space between frames
+      yPosition += 5;
+    }
+
+    // Save PDF
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")
+      .slice(0, -5);
+    pdf.save(`hasil_deteksi_${timestamp}.pdf`);
+
+    alert(
+      `✅ Download selesai! PDF berisi ${frames.length} frame(s) dengan total ${hasil.value.length} deteksi.`
+    );
+  } catch (error) {
+    console.error("Error downloading results:", error);
+    alert("❌ Error saat download: " + error.message);
+  } finally {
+    downloading.value = false;
+  }
+};
+
 onMounted(() => {
   getHasil();
   // Cek apakah sudah ada hasil (ada video yang sudah diupload)
   checkHasVideo();
+
+  // Add ESC key listener for modal
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && showImageModal.value) {
+      closeImageModal();
+    }
+  });
 });
 
 const checkHasVideo = async () => {
@@ -587,6 +1107,33 @@ const checkHasVideo = async () => {
   const data = await res.json();
   hasVideo.value = data.data && data.data.length > 0;
 };
+
+// Fungsi toggle filter
+const toggleFilter = (type) => {
+  if (filterType.value === type) {
+    // Jika sudah aktif, nonaktifkan (kembali ke semua)
+    filterType.value = "all";
+  } else {
+    // Aktifkan filter yang dipilih
+    filterType.value = type;
+  }
+};
+
+// Computed property untuk filter hasil
+const filteredHasil = computed(() => {
+  if (filterType.value === "all") {
+    return hasil.value;
+  } else if (filterType.value === "hitam") {
+    return hasil.value.filter((row) =>
+      row["Label Plat"]?.toLowerCase().includes("hitam")
+    );
+  } else if (filterType.value === "putih") {
+    return hasil.value.filter((row) =>
+      row["Label Plat"]?.toLowerCase().includes("putih")
+    );
+  }
+  return hasil.value;
+});
 </script>
 
 <style scoped>
