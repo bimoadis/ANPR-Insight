@@ -161,6 +161,16 @@
                 Proses ini mungkin memakan waktu beberapa menit
               </p>
             </div>
+
+            <!-- Download Button - Show only when detection is complete -->
+            <button
+              v-if="detectionComplete"
+              @click="downloadResults"
+              class="w-full px-5 py-3 rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 transition font-semibold text-lg mt-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="downloading"
+            >
+              {{ downloading ? "⏳ Downloading..." : "📥 Download Hasil PDF" }}
+            </button>
           </div>
 
           <p v-if="message" class="text-sm text-emerald-700">{{ message }}</p>
@@ -180,19 +190,8 @@
                   📊 Data Plat Terdeteksi
                 </h2>
 
-                <!-- Action Buttons -->
+                <!-- Filter Buttons -->
                 <div class="flex gap-2">
-                  <button
-                    @click="downloadResults"
-                    class="px-4 py-2 rounded-md text-sm font-semibold transition bg-blue-600 text-white hover:bg-blue-700"
-                    :disabled="downloading"
-                  >
-                    {{
-                      downloading ? "⏳ Downloading..." : "📥 Download Hasil"
-                    }}
-                  </button>
-
-                  <!-- Filter Buttons -->
                   <button
                     @click="toggleFilter('hitam')"
                     :class="[
@@ -1118,6 +1117,11 @@ const toggleFilter = (type) => {
     filterType.value = type;
   }
 };
+
+// Computed property untuk mengecek apakah deteksi sudah selesai
+const detectionComplete = computed(() => {
+  return !processingDetection.value && hasil.value.length > 0;
+});
 
 // Computed property untuk filter hasil
 const filteredHasil = computed(() => {
