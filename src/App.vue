@@ -19,14 +19,7 @@
             <h2 class="text-xl font-semibold">Smart Vehicle Monitoring</h2>
             <div v-if="hasVideo" class="flex gap-2">
               <button
-                class="px-4 py-2 rounded-md text-white bg-emerald-600 hover:bg-emerald-700 transition"
-                @click="getHasil"
-              >
-                Refresh Hasil
-              </button>
-
-              <button
-                class="px-4 py-2 rounded-md text-white bg-red-500 hover:bg-red-600 transition"
+                class="px-4 py-2 rounded-md text-red-600 border-red-600 border bg-red-50 hover:bg-red-600 hover:text-white transition"
                 @click="resetVideo"
               >
                 Reset Video
@@ -59,49 +52,40 @@
             </button>
           </div>
 
-          <!-- Video Preview -->
+          <!-- Upload Progress -->
           <div v-if="selectedFile && !uploadComplete" class="space-y-4">
-            <div class="border-2 border-emerald-500 rounded-lg p-4 bg-gray-50">
-              <div class="flex justify-between items-center mb-3">
-                <h3 class="text-sm font-semibold text-gray-700">
-                  Preview Video
-                </h3>
+            <div
+              v-if="uploading"
+              class="border-2 border-emerald-500 rounded-lg p-4 bg-emerald-50"
+            >
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <h3 class="text-sm font-semibold text-emerald-700">
+                    📤 Mengupload Video...
+                  </h3>
+                  <p class="text-xs text-gray-600 mt-1">
+                    File: {{ selectedFile.name }} ({{
+                      formatFileSize(selectedFile.size)
+                    }})
+                  </p>
+                </div>
                 <button
                   @click="clearSelectedFile"
                   class="text-xs text-red-600 hover:text-red-700"
+                  :disabled="uploading || processingDetection"
                 >
                   ✕ Hapus
                 </button>
               </div>
-              <video
-                v-if="videoPreviewUrl"
-                :src="videoPreviewUrl"
-                controls
-                class="w-full rounded-lg max-h-[300px] bg-black"
-              ></video>
-              <p class="text-xs text-gray-600 mt-2">
-                File: {{ selectedFile.name }} ({{
-                  formatFileSize(selectedFile.size)
-                }})
-              </p>
-            </div>
-
-            <div v-if="uploading">
-              <p class="text-sm mb-1">Uploading: {{ progress }}%</p>
               <progress
                 :value="progress"
                 max="100"
                 class="w-full h-2"
               ></progress>
+              <p class="text-xs text-gray-600 mt-2 text-center">
+                {{ progress }}%
+              </p>
             </div>
-
-            <button
-              v-if="!uploading"
-              @click="startUpload"
-              class="w-full px-5 py-3 rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 transition font-semibold"
-            >
-              📤 Upload Video
-            </button>
           </div>
 
           <!-- After Upload Complete -->
@@ -122,18 +106,11 @@
                 class="w-full rounded-lg max-h-[300px] bg-black"
               ></video>
               <p class="text-xs text-gray-600 mt-2">
-                File: {{ selectedFile?.name }}
+                File: {{ selectedFile?.name || uploadedFilename || "Video" }}
               </p>
             </div>
 
-            <button
-              v-if="!processingDetection"
-              @click="startDetection"
-              class="w-full px-5 py-3 rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition font-semibold text-lg"
-            >
-              🔍 Deteksi Plat Nomor
-            </button>
-
+            <!-- Detection Status (Auto start setelah upload) -->
             <div v-if="processingDetection" class="text-center">
               <div class="inline-flex items-center gap-2 text-blue-600">
                 <svg
@@ -187,33 +164,38 @@
                 <h2
                   class="text-lg font-semibold text-gray-800 flex items-center gap-2"
                 >
-                  📊 Data Plat Terdeteksi
+                  📊 Data Plat Nomor
                 </h2>
 
-                <!-- Filter Buttons -->
-                <div class="flex gap-2">
-                  <button
-                    @click="toggleFilter('hitam')"
-                    :class="[
-                      'px-4 py-2 rounded-md text-sm font-semibold transition',
-                      filterType === 'hitam'
-                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300',
-                    ]"
+                <!-- Filter Dropdown -->
+                <div class="relative inline-block">
+                  <select
+                    v-model="filterType"
+                    class="w-full px-4 py-2 pr-8 text-sm font-semibold text-emerald-700 bg-emerald-50 border-2 border-emerald-500 rounded-md cursor-pointer appearance-none transition-all duration-200 hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:border-emerald-600"
                   >
-                    Plat Hitam
-                  </button>
-                  <button
-                    @click="toggleFilter('putih')"
-                    :class="[
-                      'px-4 py-2 rounded-md text-sm font-semibold transition',
-                      filterType === 'putih'
-                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300',
-                    ]"
+                    <option value="all">Semua Plat</option>
+                    <option value="putih">Plat Putih</option>
+                    <option value="hitam">Plat Hitam</option>
+                  </select>
+
+                  <!-- Icon dropdown -->
+                  <div
+                    class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-600"
                   >
-                    Plat Putih
-                  </button>
+                    <svg
+                      class="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
                 </div>
               </div>
 
@@ -224,9 +206,9 @@
                   class="bg-white rounded-xl shadow-md border border-gray-200 p-4 hover:shadow-lg transition-all"
                 >
                   <!-- Header -->
-                  <div class="flex justify-between items-center mb-3">
+                  <div class="flex justify-between items-center">
                     <h3 class="text-sm text-gray-700 font-semibold">
-                      Frame #{{ row.Frame }}
+                      Waktu: {{ formatFrameToTime(row.Frame) }}
                     </h3>
                     <span
                       :class="[
@@ -244,36 +226,10 @@
 
                   <!-- Info -->
                   <div class="text-sm text-gray-600 space-y-1 mb-3">
-                    <p>
-                      <span class="font-medium text-gray-800">Confidence:</span>
-                      {{ row["Conf YOLO"] }}
-                    </p>
-                    <p>
-                      <span class="font-medium text-gray-800">Waktu:</span>
-                      {{ row.Waktu }}
-                    </p>
-                    <p v-if="row['OCR Crop']">
-                      <span class="font-medium text-gray-800">OCR Crop:</span>
-                      <span
-                        :class="
-                          row['OCR Crop'] ? 'text-gray-900' : 'text-gray-400'
-                        "
-                      >
-                        {{ row["OCR Crop"] || "N/A" }}
-                      </span>
-                    </p>
-                    <!-- <p v-if="row['OCR HD']">
-                      <span class="font-medium text-gray-800">OCR HD:</span>
-                      <span
-                        :class="
-                          row['OCR HD'] ? 'text-gray-900' : 'text-gray-400'
-                        "
-                      >
-                        {{ row["OCR HD"] || "N/A" }}
-                      </span>
-                    </p> -->
                     <p v-if="row['SR Path'] || row['OCR SR']">
-                      <span class="font-medium text-gray-800">OCR SR:</span>
+                      <span class="font-medium text-gray-800"
+                        >Plat Terdeteksi :
+                      </span>
                       <span
                         :class="[
                           row['OCR SR']
@@ -303,9 +259,8 @@
                         <img
                           :src="formatPath(row['Deteksi Path'])"
                           alt="Deteksi"
-                          class="w-full object-contain max-h-[50vh] mx-auto rounded border-2 border-blue-300 cursor-pointer hover:opacity-90 transition-opacity"
+                          class="w-full object-contain max-h-[50vh] mx-auto rounded border-2 border-blue-300"
                           @error="handleImageError"
-                          @click="openImageModal(row)"
                         />
                       </div>
                     </div>
@@ -316,36 +271,36 @@
                       style="width: 40%"
                     >
                       <!-- Crop -->
-                      <div v-if="row['Crop Path']" class="text-center">
-                        <p class="text-xs font-semibold text-gray-700 mb-1">
-                          Crop
-                        </p>
-                        <div class="relative">
-                          <img
-                            :src="formatPath(row['Crop Path'])"
-                            alt="Crop"
+                      <!-- <div v-if="row['Crop Path']" class="text-center">
+                      <p class="text-xs font-semibold text-gray-700 mb-1">
+                        Crop
+                      </p>
+                      <div class="relative">
+                        <img
+                          :src="formatPath(row['Crop Path'])"
+                          alt="Crop"
                             class="min-w-[60%] object-contain max-h-[14vh] mx-auto rounded border border-gray-200"
-                            @error="handleImageError"
-                          />
-                          <p
-                            v-if="row['OCR Crop']"
-                            class="text-xs text-gray-600 mt-1 font-mono"
-                          >
-                            {{ row["OCR Crop"] }}
-                          </p>
-                        </div>
+                          @error="handleImageError"
+                        />
+                        <p
+                          v-if="row['OCR Crop']"
+                          class="text-xs text-gray-600 mt-1 font-mono"
+                        >
+                          {{ row["OCR Crop"] }}
+                        </p>
                       </div>
+                    </div> -->
 
                       <!-- SR -->
                       <div v-if="row['SR Path']" class="text-center">
                         <p class="text-xs font-semibold text-emerald-700 mb-1">
-                          SR
+                          Plat Nomor
                         </p>
                         <div class="relative">
                           <img
                             :src="formatPath(row['SR Path'])"
                             alt="SR"
-                            class="max-w-[60%] object-contain max-h-[14vh] mx-auto rounded border-2 border-emerald-300"
+                            class="max-w-[90%] object-contain max-h-[14vh] mx-auto rounded border-2 border-emerald-300"
                             @load="handleSRImageLoad(row)"
                             @error="handleImageError"
                           />
@@ -356,6 +311,13 @@
                             {{ row["OCR SR"] }}
                           </p>
                         </div>
+                        <!-- Button Detail Deteksi -->
+                        <button
+                          @click="openImageModal(row)"
+                          class="mt-2 w-[90%] mx-auto px-3 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+                        >
+                          Detail Deteksi
+                        </button>
                       </div>
 
                       <!-- Threshold (if exists) -->
@@ -416,7 +378,13 @@
           <div>
             <h3 class="text-xl font-bold">Detail Deteksi Plat Nomor</h3>
             <p class="text-sm opacity-90">
-              Frame #{{ selectedRow?.Frame || "N/A" }} | Label:
+              Waktu:
+              {{
+                selectedRow?.Frame
+                  ? formatFrameToTime(selectedRow.Frame)
+                  : "N/A"
+              }}
+              | Label:
               {{ selectedRow?.["Label Plat"] || "N/A" }}
             </p>
           </div>
@@ -457,7 +425,7 @@
           <!-- Right Sidebar - 20% (Crop, SR, Info) -->
           <div class="w-[20%] flex-shrink-0 overflow-y-auto space-y-4 pl-2">
             <!-- Crop Image -->
-            <div
+            <!-- <div
               v-if="selectedRow?.['Crop Path']"
               class="bg-gray-50 rounded-xl p-3 border-2 border-gray-300"
             >
@@ -487,7 +455,7 @@
                   OCR tidak tersedia
                 </p>
               </div>
-            </div>
+            </div> -->
 
             <!-- SR Image -->
             <div
@@ -495,8 +463,9 @@
               class="bg-gray-50 rounded-xl p-3 border-2 border-emerald-300"
             >
               <div class="flex items-center gap-1 mb-1">
-                <span class="text-lg">✨</span>
-                <h4 class="text-sm font-semibold text-emerald-700">SR</h4>
+                <h4 class="text-sm font-semibold text-emerald-700">
+                  Plat Nomor Terdeteksi
+                </h4>
               </div>
               <img
                 :src="formatPath(selectedRow['SR Path'])"
@@ -509,7 +478,7 @@
                 class="bg-emerald-50 rounded-lg p-2 border-2 border-emerald-300"
               >
                 <p class="text-xs text-emerald-700 mb-1 font-semibold">
-                  OCR: {{ selectedRow["OCR SR"] }}
+                  OCR : {{ selectedRow["OCR SR"] }}
                 </p>
               </div>
               <div
@@ -531,21 +500,20 @@
               </h4>
               <div class="space-y-2 text-xs">
                 <div>
-                  <p class="text-gray-600">Confidence:</p>
+                  <p class="text-gray-600">Confidence Plat:</p>
                   <p class="font-semibold text-gray-900">
                     {{ selectedRow?.["Conf YOLO"] || "N/A" }}
                   </p>
                 </div>
+
                 <div>
                   <p class="text-gray-600">Waktu:</p>
-                  <p class="font-semibold text-gray-900 text-xs">
-                    {{ selectedRow?.Waktu || "N/A" }}
-                  </p>
-                </div>
-                <div>
-                  <p class="text-gray-600">Frame:</p>
                   <p class="font-semibold text-gray-900">
-                    #{{ selectedRow?.Frame || "N/A" }}
+                    {{
+                      selectedRow?.Frame
+                        ? formatFrameToTime(selectedRow.Frame)
+                        : "N/A"
+                    }}
                   </p>
                 </div>
                 <div>
@@ -607,6 +575,9 @@ const handleFileSelect = (e) => {
   }
   videoPreviewUrl.value = URL.createObjectURL(file);
   uploadComplete.value = false;
+
+  // Langsung upload dan deteksi setelah file dipilih
+  startUploadAndDetect();
 };
 
 const clearSelectedFile = () => {
@@ -656,6 +627,51 @@ const startUpload = () => {
       message.value = res.message;
       uploadComplete.value = true;
       hasVideo.value = true;
+    } else {
+      error.value = "Upload gagal. Status: " + xhr.status;
+    }
+  };
+  xhr.onerror = () => {
+    uploading.value = false;
+    error.value = "Terjadi kesalahan jaringan saat upload.";
+  };
+  xhr.open("POST", `${apiUrl}/upload-video`, true);
+  xhr.send(formData);
+};
+
+// Fungsi untuk upload dan langsung deteksi
+const startUploadAndDetect = () => {
+  if (!selectedFile.value) {
+    error.value = "Silakan pilih file terlebih dahulu.";
+    return;
+  }
+
+  error.value = "";
+  message.value = "📤 Mengupload video...";
+  progress.value = 0;
+  uploading.value = true;
+
+  const formData = new FormData();
+  formData.append("file", selectedFile.value);
+
+  const xhr = new XMLHttpRequest();
+  xhr.upload.addEventListener("progress", (event) => {
+    if (event.lengthComputable) {
+      progress.value = Math.round((event.loaded / event.total) * 100);
+    }
+  });
+  xhr.onload = async () => {
+    uploading.value = false;
+    if (xhr.status === 200) {
+      const res = JSON.parse(xhr.responseText);
+      message.value = "✅ Upload selesai. Memulai deteksi...";
+      uploadComplete.value = true;
+      hasVideo.value = true;
+
+      // Langsung mulai deteksi setelah upload selesai
+      setTimeout(() => {
+        startDetection();
+      }, 500); // Delay kecil untuk memastikan upload benar-benar selesai
     } else {
       error.value = "Upload gagal. Status: " + xhr.status;
     }
@@ -800,6 +816,31 @@ const closeImageModal = () => {
   document.body.style.overflow = "auto";
 };
 
+// Konversi frame ke format waktu (MM:SS atau HH:MM:SS)
+// Asumsi: 30 fps (frame rate standar)
+const formatFrameToTime = (frameNumber) => {
+  if (!frameNumber || isNaN(frameNumber)) return "00:00";
+
+  const fps = 25; // Frame per second
+  const totalSeconds = Math.floor(frameNumber / fps);
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+      2,
+      "0"
+    )}:${String(seconds).padStart(2, "0")}`;
+  } else {
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(
+      2,
+      "0"
+    )}`;
+  }
+};
+
 // Group results by frame
 const groupByFrame = (data) => {
   const grouped = {};
@@ -869,22 +910,88 @@ const combineImages = async (deteksiUrl, srUrl) => {
   }
 };
 
-// Convert image to base64
-const imageToBase64 = (url) => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL("image/jpeg", 0.9));
-    };
-    img.onerror = reject;
-    img.src = url;
-  });
+// Convert image to base64 using fetch API to handle CORS better
+const imageToBase64 = async (url) => {
+  try {
+    // Try using fetch first (better CORS handling)
+    const response = await fetch(url, {
+      mode: "cors",
+      credentials: "omit",
+      cache: "no-cache",
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+
+    // Validate blob type
+    if (!blob.type.startsWith("image/")) {
+      throw new Error(`Invalid image type: ${blob.type}`);
+    }
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (reader.result) {
+          resolve(reader.result);
+        } else {
+          reject(new Error("Failed to read image data"));
+        }
+      };
+      reader.onerror = () => reject(new Error("FileReader error"));
+      reader.readAsDataURL(blob);
+    });
+  } catch (fetchError) {
+    // Fallback to Image method if fetch fails
+    console.warn("Fetch method failed, trying Image method:", fetchError);
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+
+      // Add timeout
+      const timeout = setTimeout(() => {
+        reject(new Error("Image load timeout"));
+      }, 10000); // 10 seconds timeout
+
+      img.onload = () => {
+        clearTimeout(timeout);
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+
+          // Fill white background for transparent images
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          ctx.drawImage(img, 0, 0);
+
+          // Determine format based on file extension or use JPEG
+          const format = url.toLowerCase().endsWith(".png")
+            ? "image/png"
+            : "image/jpeg";
+          const quality = format === "image/png" ? undefined : 0.9;
+
+          resolve(canvas.toDataURL(format, quality));
+        } catch (canvasError) {
+          clearTimeout(timeout);
+          reject(new Error(`Canvas error: ${canvasError.message}`));
+        }
+      };
+      img.onerror = (error) => {
+        clearTimeout(timeout);
+        reject(
+          new Error(
+            `Image load error: ${error.message || "Failed to load image"}`
+          )
+        );
+      };
+      img.src = url;
+    });
+  }
 };
 
 // Load jsPDF from CDN
@@ -932,16 +1039,23 @@ const downloadResults = async () => {
       (a, b) => parseInt(a) - parseInt(b)
     );
 
+    if (frames.length === 0) {
+      alert("Tidak ada frame yang valid untuk didownload");
+      downloading.value = false;
+      return;
+    }
+
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     const margin = 10;
     const contentWidth = pageWidth - 2 * margin;
-    const contentHeight = pageHeight - 2 * margin;
     const imageHeight = 60; // Height for each image row in mm
     const textHeight = 8; // Height for OCR text
 
     let yPosition = margin;
     let pageNumber = 1;
+    let processedFrames = 0;
+    let skippedFrames = 0;
 
     for (const frame of frames) {
       const frameData = grouped[frame];
@@ -949,7 +1063,10 @@ const downloadResults = async () => {
       // Find first detection with deteksi path for this frame
       const firstDetection = frameData.find((row) => row["Deteksi Path"]);
 
-      if (!firstDetection) continue;
+      if (!firstDetection) {
+        skippedFrames++;
+        continue;
+      }
 
       // Calculate needed height: deteksi image + all SR images (2x smaller) + OCR texts
       const srImageHeight = imageHeight / 2; // 2x smaller
@@ -969,19 +1086,48 @@ const downloadResults = async () => {
       // Frame header
       pdf.setFontSize(14);
       pdf.setFont("helvetica", "bold");
-      pdf.text(`Frame #${frame}`, margin, yPosition);
+      pdf.text(
+        `Waktu: ${formatFrameToTime(parseInt(frame))}`,
+        margin,
+        yPosition
+      );
       yPosition += 8;
 
       try {
-        // Load and add detection image (left side - 50% width) - only once per frame
+        // Load and add detection image (left side - 60% width) - only once per frame
         const deteksiUrl = formatPath(firstDetection["Deteksi Path"]);
-        const deteksiBase64 = await imageToBase64(deteksiUrl);
-        const deteksiWidth = contentWidth * 0.5;
+        if (!deteksiUrl) {
+          skippedFrames++;
+          continue;
+        }
+
+        let deteksiBase64;
+        try {
+          deteksiBase64 = await imageToBase64(deteksiUrl);
+          // Validate base64 string
+          if (!deteksiBase64 || !deteksiBase64.startsWith("data:image")) {
+            throw new Error("Invalid image data");
+          }
+        } catch (imgError) {
+          console.error(
+            `Error loading detection image for frame ${frame}:`,
+            imgError
+          );
+          skippedFrames++;
+          continue;
+        }
+
+        const deteksiWidth = contentWidth * 0.6; // 60% width untuk gambar deteksi
         const deteksiStartY = yPosition;
+
+        // Determine image format from base64
+        const imageFormat = deteksiBase64.includes("data:image/png")
+          ? "PNG"
+          : "JPEG";
 
         pdf.addImage(
           deteksiBase64,
-          "JPEG",
+          imageFormat,
           margin,
           deteksiStartY,
           deteksiWidth,
@@ -995,7 +1141,7 @@ const downloadResults = async () => {
 
         // Right side: Add all SR images (2x smaller) vertically
         let srYPosition = deteksiStartY;
-        const srWidth = contentWidth * 0.5;
+        const srWidth = contentWidth * 0.4; // 40% width untuk gambar plat
         const srStartX = margin + deteksiWidth;
 
         // Process all detections in this frame to get all SR images
@@ -1006,12 +1152,26 @@ const downloadResults = async () => {
           if (srPath) {
             try {
               const srUrl = formatPath(srPath);
+              if (!srUrl) continue;
+
               const srBase64 = await imageToBase64(srUrl);
+              // Validate base64 string
+              if (!srBase64 || !srBase64.startsWith("data:image")) {
+                console.warn(
+                  `Invalid SR image data for frame ${frame}, detection ${i + 1}`
+                );
+                continue;
+              }
+
+              // Determine image format from base64
+              const srImageFormat = srBase64.includes("data:image/png")
+                ? "PNG"
+                : "JPEG";
 
               // Add SR image (2x smaller)
               pdf.addImage(
                 srBase64,
-                "JPEG",
+                srImageFormat,
                 srStartX,
                 srYPosition,
                 srWidth,
@@ -1020,11 +1180,15 @@ const downloadResults = async () => {
 
               // Add SR label with index
               pdf.setFontSize(7);
-              pdf.text(`SR ${i + 1}`, srStartX + 2, srYPosition - 1);
+              pdf.text(`Plat Nomor ${i + 1}`, srStartX + 2, srYPosition - 1);
 
               srYPosition += srImageHeight + 4; // Space between SR images
             } catch (e) {
-              console.error(`Error loading SR image ${i + 1}:`, e);
+              console.error(
+                `Error loading SR image ${i + 1} for frame ${frame}:`,
+                e
+              );
+              // Continue with next SR image instead of breaking
             }
           }
         }
@@ -1036,7 +1200,6 @@ const downloadResults = async () => {
 
         for (let i = 0; i < frameData.length; i++) {
           const row = frameData[i];
-          const ocrCrop = row["OCR Crop"] || "N/A";
           const ocrSR = row["OCR SR"] || "N/A";
           const conf = row["Conf YOLO"] || "N/A";
           const label = row["Label Plat"] || "N/A";
@@ -1045,16 +1208,13 @@ const downloadResults = async () => {
           pdf.text(`Deteksi ${i + 1}:`, margin, yPosition);
           yPosition += 4;
 
-          // OCR Crop
-          pdf.setFont("helvetica", "normal");
-          pdf.text(`  OCR Crop: ${ocrCrop}`, margin, yPosition);
-          yPosition += 3;
-
           // OCR SR
-          pdf.text(`  OCR SR: ${ocrSR}`, margin, yPosition);
+          pdf.setFont("helvetica", "normal");
+          pdf.text(`  Plat Nomor Terdeteksi: ${ocrSR}`, margin, yPosition);
           yPosition += 3;
 
           // Additional info
+          pdf.setFont("helvetica", "bold");
           pdf.text(
             `  Confidence: ${conf} | Label: ${label}`,
             margin,
@@ -1062,12 +1222,24 @@ const downloadResults = async () => {
           );
           yPosition += 5; // Space before next detection info
         }
+
+        processedFrames++;
       } catch (error) {
         console.error(`Error processing frame ${frame}:`, error);
+        skippedFrames++;
       }
 
       // Add space between frames
       yPosition += 5;
+    }
+
+    // Check if any frames were processed
+    if (processedFrames === 0) {
+      alert(
+        "❌ Tidak ada frame yang berhasil diproses. Pastikan gambar dapat diakses."
+      );
+      downloading.value = false;
+      return;
     }
 
     // Save PDF
@@ -1075,14 +1247,42 @@ const downloadResults = async () => {
       .toISOString()
       .replace(/[:.]/g, "-")
       .slice(0, -5);
-    pdf.save(`hasil_deteksi_${timestamp}.pdf`);
 
-    alert(
-      `✅ Download selesai! PDF berisi ${frames.length} frame(s) dengan total ${hasil.value.length} deteksi.`
-    );
+    try {
+      pdf.save(`hasil_deteksi_${timestamp}.pdf`);
+      const message =
+        skippedFrames > 0
+          ? `✅ Download selesai! PDF berisi ${processedFrames} frame(s) dengan total ${hasil.value.length} deteksi. (${skippedFrames} frame dilewati karena error)`
+          : `✅ Download selesai! PDF berisi ${processedFrames} frame(s) dengan total ${hasil.value.length} deteksi.`;
+      alert(message);
+    } catch (saveError) {
+      console.error("Error saving PDF:", saveError);
+      // Try alternative method - create blob and download
+      try {
+        const pdfBlob = pdf.output("blob");
+        const url = URL.createObjectURL(pdfBlob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `hasil_deteksi_${timestamp}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        const message =
+          skippedFrames > 0
+            ? `✅ Download selesai! PDF berisi ${processedFrames} frame(s) dengan total ${hasil.value.length} deteksi. (${skippedFrames} frame dilewati karena error)`
+            : `✅ Download selesai! PDF berisi ${processedFrames} frame(s) dengan total ${hasil.value.length} deteksi.`;
+        alert(message);
+      } catch (blobError) {
+        console.error("Error creating blob:", blobError);
+        alert(
+          "❌ Error saat menyimpan PDF. Silakan coba lagi atau periksa console untuk detail."
+        );
+      }
+    }
   } catch (error) {
     console.error("Error downloading results:", error);
-    alert("❌ Error saat download: " + error.message);
+    alert("❌ Error saat download: " + (error.message || error.toString()));
   } finally {
     downloading.value = false;
   }
@@ -1092,6 +1292,8 @@ onMounted(() => {
   getHasil();
   // Cek apakah sudah ada hasil (ada video yang sudah diupload)
   checkHasVideo();
+  // Load current video jika ada
+  loadCurrentVideo();
 
   // Add ESC key listener for modal
   window.addEventListener("keydown", (e) => {
@@ -1107,16 +1309,41 @@ const checkHasVideo = async () => {
   hasVideo.value = data.data && data.data.length > 0;
 };
 
-// Fungsi toggle filter
-const toggleFilter = (type) => {
-  if (filterType.value === type) {
-    // Jika sudah aktif, nonaktifkan (kembali ke semua)
-    filterType.value = "all";
-  } else {
-    // Aktifkan filter yang dipilih
-    filterType.value = type;
+const loadCurrentVideo = async () => {
+  try {
+    const res = await fetch(`${apiUrl}/get-current-video`);
+    const data = await res.json();
+
+    if (data.exists && data.video_info) {
+      // Set video info
+      const originalName =
+        data.video_info.original_filename || data.video_info.filename;
+      uploadedFilename.value = originalName;
+      uploadComplete.value = true;
+      hasVideo.value = true;
+
+      // Load video preview dari server
+      if (data.video_url) {
+        const videoUrl = `${apiUrl}${data.video_url}`;
+        videoPreviewUrl.value = videoUrl;
+
+        // Create a dummy File object untuk UI consistency
+        // Ini diperlukan agar selectedFile?.name bisa digunakan di template
+        const dummyFile = {
+          name: originalName,
+          size: 0, // Size tidak diketahui dari server
+          type: "video/mp4", // Default type
+        };
+        selectedFile.value = dummyFile;
+      }
+    }
+  } catch (error) {
+    console.error("Error loading current video:", error);
+    // Tidak perlu error handling, hanya log
   }
 };
+
+// Filter menggunakan v-model langsung pada select dropdown, tidak perlu toggle function
 
 // Computed property untuk mengecek apakah deteksi sudah selesai
 const detectionComplete = computed(() => {
@@ -1125,18 +1352,37 @@ const detectionComplete = computed(() => {
 
 // Computed property untuk filter hasil
 const filteredHasil = computed(() => {
+  let filtered = [];
+
   if (filterType.value === "all") {
-    return hasil.value;
+    filtered = hasil.value;
   } else if (filterType.value === "hitam") {
-    return hasil.value.filter((row) =>
+    filtered = hasil.value.filter((row) =>
       row["Label Plat"]?.toLowerCase().includes("hitam")
     );
   } else if (filterType.value === "putih") {
-    return hasil.value.filter((row) =>
+    filtered = hasil.value.filter((row) =>
       row["Label Plat"]?.toLowerCase().includes("putih")
     );
+  } else {
+    filtered = hasil.value;
   }
-  return hasil.value;
+
+  // Urutkan berdasarkan panjang plat nomor terdeteksi (OCR SR) dari panjang ke pendek
+  return filtered.sort((a, b) => {
+    const ocrA = (a["OCR SR"] || "").toString().trim();
+    const ocrB = (b["OCR SR"] || "").toString().trim();
+    const lengthA = ocrA.length;
+    const lengthB = ocrB.length;
+
+    // Jika panjang sama, urutkan berdasarkan nilai string (alphabetical)
+    if (lengthB === lengthA) {
+      return ocrB.localeCompare(ocrA);
+    }
+
+    // Urutkan dari panjang ke pendek
+    return lengthB - lengthA;
+  });
 });
 </script>
 
